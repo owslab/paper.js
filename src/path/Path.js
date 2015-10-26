@@ -2348,7 +2348,7 @@ var Path = PathItem.extend(/** @lends Path# */{
                     hy = py[i] - pt._y;
                 if (closed || i < n)
                     segment.setHandleOut(hx, hy);
-                if ( closed || i > 0)
+                if (closed || i > 0)
                     segment.setHandleIn(-hx, -hy);
             }
         },

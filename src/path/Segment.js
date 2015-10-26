@@ -478,7 +478,7 @@ var Segment = Base.extend(/** @lends Segment# */{
         var alpha = tension === undefined ? 0.5 : tension,
             prev = this.getPrevious(),
             next = this.getNext(),
-            p0 = (prev || this)._point,
+            p0 = (prev || this)._point,
             p1 = this._point,
             p2 = (next || this)._point,
             d1 = p0.getDistance(p1),
