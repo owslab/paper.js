@@ -442,68 +442,70 @@ var Segment = Base.extend(/** @lends Segment# */{
      * its point, by taking into its distance to the neighboring segments and
      * changing the direction and length of the segment's handles accordingly.
      *
-     * @param {Number} [tension=0.4] controls the amount of smoothing as a
-     * factor by wich to scale each handle.
+     * @param {Object} [options] TODO
+     * TODO: controls the amount of smoothing as a factor by which to scale each
+     * handle.
      *
-     * @see PathItem#smoothGeometric(tension)
+     * @see PathItem#smooth(options)
      */
-    smoothGeometric: function(tension) {
-        // Smoothing approach based on:
-        // http://www.antigrain.com/research/bezier_interpolation/
-        // http://scaledinnovation.com/analytics/splines/aboutSplines.html
-        // http://bseth99.github.io/projects/animate/2-bezier-curves.html
-        var prev = this.getPrevious(),
-            next = this.getNext();
-        if (prev && next) {
-            var p0 = prev._point,
-                p1 = this._point,
-                p2 = next._point,
-                l1 = p1.getDistance(p0),
-                l2 = p1.getDistance(p2),
-                vector = p0.subtract(p2),
-                t = tension === undefined ? 0.4 : tension,
-                k = t * l1 / (l1 + l2);
-            this.setHandleIn(vector.multiply(k));
-            this.setHandleOut(vector.multiply(k - t));
-        }
-    },
-
-    smoothCatmullRom: function(tension) {
-        // Implementation of by Catmull-Rom splines with tension parameter based
-        // on work by @nicholaswmin, https://github.com/nicholaswmin/VectorTests
-        // Using the tension values produces different types of splines:
-        // 0.0: uniform
-        // 0.5: centripetal
-        // 1.0: chordal
-        var alpha = tension === undefined ? 0.5 : tension,
+    smooth: function(options) {
+        var opts = options || {},
+            type = opts.type,
+            factor = opts.factor,
             prev = this.getPrevious(),
             next = this.getNext(),
+            // Some precalculations valid for both 'catmull-rom' and 'geometric'
             p0 = (prev || this)._point,
             p1 = this._point,
             p2 = (next || this)._point,
             d1 = p0.getDistance(p1),
-            d2 = p1.getDistance(p2),
-            d1powA = Math.pow(d1, alpha),
-            d1pow2A = d1powA * d1powA,
-            d2powA = Math.pow(d2, alpha),
-            d2pow2A = d2powA * d2powA;
-        if (prev) {
-            var A = 2 * d2pow2A + 3 * d2powA * d1powA + d1pow2A,
-                N = 3 * d2powA * (d2powA + d1powA);
-            this.setHandleIn(N !== 0
-                ? new Point(
-                    (d2pow2A * p0._x + A * p1._x - d1pow2A * p2._x) / N - p1._x,
-                    (d2pow2A * p0._y + A * p1._y - d1pow2A * p2._y) / N - p1._y)
-                : new Point());
-        }
-        if (next) {
-            var A = 2 * d1pow2A + 3 * d1powA * d2powA + d2pow2A,
-                N = 3 * d1powA * (d1powA + d2powA);
-            this.setHandleOut(N !== 0
-                ? new Point(
-                    (d1pow2A * p2._x + A * p1._x - d2pow2A * p0._x) / N - p1._x,
-                    (d1pow2A * p2._y + A * p1._y - d2pow2A * p0._y) / N - p1._y)
-                : new Point());
+            d2 = p1.getDistance(p2);
+        if (!type || type === 'catmull-rom') {
+            // Implementation of by Catmull-Rom splines with factor parameter
+            // based on work by @nicholaswmin:
+            // https://github.com/nicholaswmin/VectorTests
+            // Using these factor values produces different types of splines:
+            // 0.0: the standard, uniform Catmull-Rom spline
+            // 0.5: the centripetal Catmull-Rom spline, guaranteeing no self-
+            // intersections
+            // 1.0: the chordal Catmull-Rom spline.
+            var alpha = factor === undefined ? 0.5 : factor,
+                d1_a = Math.pow(d1, alpha),
+                d1_2a = d1_a * d1_a,
+                d2_a = Math.pow(d2, alpha),
+                d2_2a = d2_a * d2_a;
+            if (prev) {
+                var A = 2 * d2_2a + 3 * d2_a * d1_a + d1_2a,
+                    N = 3 * d2_a * (d2_a + d1_a);
+                this.setHandleIn(N !== 0
+                    ? new Point(
+                        (d2_2a * p0._x + A * p1._x - d1_2a * p2._x) / N - p1._x,
+                        (d2_2a * p0._y + A * p1._y - d1_2a * p2._y) / N - p1._y)
+                    : new Point());
+            }
+            if (next) {
+                var A = 2 * d1_2a + 3 * d1_a * d2_a + d2_2a,
+                    N = 3 * d1_a * (d1_a + d2_a);
+                this.setHandleOut(N !== 0
+                    ? new Point(
+                        (d1_2a * p2._x + A * p1._x - d2_2a * p0._x) / N - p1._x,
+                        (d1_2a * p2._y + A * p1._y - d2_2a * p0._y) / N - p1._y)
+                    : new Point());
+            }
+        } else if (type === 'geometric') {
+            // Geometric smoothing approach based on:
+            // http://www.antigrain.com/research/bezier_interpolation/
+            // http://scaledinnovation.com/analytics/splines/aboutSplines.html
+            // http://bseth99.github.io/projects/animate/2-bezier-curves.html
+            if (prev && next) {
+                var vector = p0.subtract(p2),
+                    t = factor === undefined ? 0.4 : factor,
+                    k = t * d1 / (d1 + d2);
+                this.setHandleIn(vector.multiply(k));
+                this.setHandleOut(vector.multiply(k - t));
+            }
+        } else {
+            throw new Error('Smoothing method \'' + type + '\' not supported.');
         }
     },
 

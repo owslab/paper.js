@@ -25,6 +25,8 @@ var CompoundPath = PathItem.extend(/** @lends CompoundPath# */{
     _serializeFields: {
         children: []
     },
+    // Enforce bean creation for getPathData(), as it has hidden parameters.
+    beans: true,
 
     /**
      * Creates a new compound path item and places it in the active layer.
@@ -227,10 +229,7 @@ var CompoundPath = PathItem.extend(/** @lends CompoundPath# */{
         for (var i = 0, l = children.length; i < l; i++)
             area += children[i].getArea();
         return area;
-    }
-}, /** @lends CompoundPath# */{
-    // Enforce bean creation for getPathData(), as it has hidden parameters.
-    beans: true,
+    },
 
     getPathData: function(_matrix, _precision) {
         // NOTE: #setPathData() is defined in PathItem.
@@ -243,8 +242,15 @@ var CompoundPath = PathItem.extend(/** @lends CompoundPath# */{
                     ? _matrix.chain(mx) : _matrix, _precision));
         }
         return paths.join(' ');
-    }
-}, /** @lends CompoundPath# */{
+    },
+
+    // TODO: Docs
+    smooth: function(options) {
+        var children = this._children;
+        for (var i = 0, l = children.length; i < l; i++)
+            children[i].smooth(options);
+    },
+
     _getChildHitTestOptions: function(options) {
         // If we're not specifically asked to returns paths through
         // options.class == Path, do not test children for fill, since a
