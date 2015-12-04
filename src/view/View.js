@@ -73,9 +73,12 @@ var View = Base.extend(Emitter, /** @lends View# */{
         // update its coordinate space accordingly
         if (PaperScope.hasAttribute(element, 'resize')) {
             var that = this;
+            this.refreshViewSize = function(){
+                that.setViewSize(getCanvasSize());
+            }
             DomEvent.add(window, this._windowEvents = {
                 resize: function() {
-                    that.setViewSize(getCanvasSize());
+                    that.refreshViewSize()
                 }
             });
         }

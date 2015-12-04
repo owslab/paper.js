@@ -9,7 +9,7 @@
  *
  * All rights reserved.
  *
- * Date: Sun Oct 25 11:23:38 2015 +0100
+ * Date: Thu Nov 12 10:12:46 2015 +0100
  *
  ***
  *
@@ -859,7 +859,7 @@ var PaperScopeItem = Base.extend(Emitter, {
 
 var Formatter = Base.extend({
 	initialize: function(precision) {
-		this.precision = precision || 5;
+		this.precision = Base.pick(precision, 5);
 		this.multiplier = Math.pow(10, this.precision);
 	},
 
@@ -1045,10 +1045,10 @@ var Numerical = new function() {
 				var ec = 1 + MACHINE_EPSILON,
 					x0, q, qd, t, r, s, tmp;
 				x = -(b / a) / 3;
-				tmp = a * x,
-				b1 = tmp + b,
-				c2 = b1 * x + c,
-				qd = (tmp + b1) * x + c2,
+				tmp = a * x;
+				b1 = tmp + b;
+				c2 = b1 * x + c;
+				qd = (tmp + b1) * x + c2;
 				q = c2 * x + d;
 				t = q /a;
 				r = pow(abs(t), 1/3);
@@ -1059,10 +1059,10 @@ var Numerical = new function() {
 				if (x0 !== x) {
 					do {
 						x = x0;
-						tmp = a * x,
-						b1 = tmp + b,
-						c2 = b1 * x + c,
-						qd = (tmp + b1) * x + c2,
+						tmp = a * x;
+						b1 = tmp + b;
+						c2 = b1 * x + c;
+						qd = (tmp + b1) * x + c2;
 						q = c2 * x + d;
 						x0 = qd === 0 ? x : x - q / qd / ec;
 						if (x0 === x) {
@@ -3094,7 +3094,7 @@ var Item = Base.extend(Emitter, {
 
 	_getBounds: function(getter, matrix, cacheItem) {
 		var children = this._children;
-		if (!children || children.length == 0)
+		if (!children || children.length === 0)
 			return new Rectangle();
 		Item._updateBoundsCache(this, cacheItem);
 		var x1 = Infinity,
@@ -3125,8 +3125,8 @@ var Item = Base.extend(Emitter, {
 		matrix.translate(center);
 		if (rect.width != bounds.width || rect.height != bounds.height) {
 			matrix.scale(
-					bounds.width != 0 ? rect.width / bounds.width : 1,
-					bounds.height != 0 ? rect.height / bounds.height : 1);
+					bounds.width !== 0 ? rect.width / bounds.width : 1,
+					bounds.height !== 0 ? rect.height / bounds.height : 1);
 		}
 		center = bounds.getCenter();
 		matrix.translate(-center.x, -center.y);
@@ -3397,15 +3397,17 @@ var Item = Base.extend(Emitter, {
 			topLeft = bounds.getTopLeft().floor(),
 			bottomRight = bounds.getBottomRight().ceil(),
 			size = new Size(bottomRight.subtract(topLeft)),
-			canvas = CanvasProvider.getCanvas(size.multiply(scale)),
-			ctx = canvas.getContext('2d'),
-			matrix = new Matrix().scale(scale).translate(topLeft.negate());
-		ctx.save();
-		matrix.applyToContext(ctx);
-		this.draw(ctx, new Base({ matrices: [matrix] }));
-		ctx.restore();
-		var raster = new Raster(Item.NO_INSERT);
-		raster.setCanvas(canvas);
+			raster = new Raster(Item.NO_INSERT);
+		if (!size.isZero()) {
+			var canvas = CanvasProvider.getCanvas(size.multiply(scale)),
+				ctx = canvas.getContext('2d'),
+				matrix = new Matrix().scale(scale).translate(topLeft.negate());
+			ctx.save();
+			matrix.applyToContext(ctx);
+			this.draw(ctx, new Base({ matrices: [matrix] }));
+			ctx.restore();
+			raster.setCanvas(canvas);
+		}
 		raster.transform(new Matrix().translate(topLeft.add(size.divide(2)))
 				.scale(1 / scale));
 		raster.insertAbove(this);
@@ -6058,7 +6060,7 @@ new function() {
 		statics: {
 			evaluateMethods: methods
 		}
-	})
+	});
 },
 new function() {
 
@@ -6165,7 +6167,7 @@ new function() {
 
 		getParameterAt: function(v, offset, start) {
 			if (start === undefined)
-				start = offset < 0 ? 1 : 0
+				start = offset < 0 ? 1 : 0;
 			if (offset === 0)
 				return start;
 			var abs = Math.abs,
@@ -6333,7 +6335,7 @@ new function() {
 			var distRatio = dist1 / dist2;
 			hull = [
 				distRatio >= 2 ? [p0, p1, p3]
-				: distRatio <= .5 ? [p0, p2, p3]
+				: distRatio <= 0.5 ? [p0, p2, p3]
 				: [p0, p1, p2, p3],
 				[p0, p3]
 			];
@@ -6967,7 +6969,7 @@ var PathItem = Item.extend({
 
 	getCrossings: function(path) {
 		return this.getIntersections(path, function(inter) {
-			return inter.isCrossing();
+			return inter.isOverlap() || inter.isCrossing();
 		});
 	},
 
@@ -7312,7 +7314,8 @@ var Path = PathItem.extend({
 		}
 		if (curves) {
 			var total = this._countCurves(),
-				from = index + amount - 1 === total ? index - 1 : index,
+				from = index > 0 && index + amount - 1 === total ? index - 1
+					: index,
 				start = from,
 				to = Math.min(from + amount, total);
 			if (segs._curves) {
@@ -7545,7 +7548,7 @@ var Path = PathItem.extend({
 			if (typeof arg === 'number')
 				arg = this.getLocationAt(arg);
 			if (!arg)
-				return null
+				return null;
 			index = arg.index;
 			parameter = arg.parameter;
 		}
@@ -8979,12 +8982,8 @@ PathItem.inject(new function() {
 		if (_path2 && /^(subtract|exclude)$/.test(operation)
 				^ (_path2.isClockwise() !== _path1.isClockwise()))
 			_path2.reverse();
-		var intersections = CurveLocation.expand(
-			_path1.getIntersections(_path2, function(inter) {
-				return _path2 && inter.isOverlap() || inter.isCrossing();
-			})
-		);
-		divideLocations(intersections);
+		var crossings = CurveLocation.expand(_path1.getCrossings(_path2));
+		divideLocations(crossings);
 
 		var segments = [],
 			monoCurves = [];
@@ -9000,9 +8999,9 @@ PathItem.inject(new function() {
 		collect(_path1._children || [_path1]);
 		if (_path2)
 			collect(_path2._children || [_path2]);
-		for (var i = 0, l = intersections.length; i < l; i++) {
-			propagateWinding(intersections[i]._segment, _path1, _path2,
-					monoCurves, operation);
+		for (var i = 0, l = crossings.length; i < l; i++) {
+			propagateWinding(crossings[i]._segment, _path1, _path2, monoCurves,
+					operation);
 		}
 		for (var i = 0, l = segments.length; i < l; i++) {
 			var segment = segments[i];
@@ -9021,9 +9020,7 @@ PathItem.inject(new function() {
 			return null;
 		var _path1 = preparePath(path1, false),
 			_path2 = preparePath(path2, false),
-			intersections = _path1.getIntersections(_path2, function(inter) {
-				return inter.isOverlap() || inter.isCrossing();
-			}),
+			crossings = _path1.getCrossings(_path2),
 			sub = operation === 'subtract',
 			paths = [];
 
@@ -9034,8 +9031,8 @@ PathItem.inject(new function() {
 			}
 		}
 
-		for (var i = intersections.length - 1; i >= 0; i--) {
-			var path = intersections[i].split();
+		for (var i = crossings.length - 1; i >= 0; i--) {
+			var path = crossings[i].split();
 			if (path) {
 				if (addPath(path))
 					path.getFirstSegment().setHandleIn(0, 0);
@@ -9339,9 +9336,12 @@ PathItem.inject(new function() {
 				path.firstSegment.setHandleIn(seg._handleIn);
 				path.setClosed(true);
 			} else if (path) {
-				console.error('Boolean operation resulted in open path',
-						'segments =', path._segments.length,
-						'length =', path.getLength());
+				var length = path.getLength();
+				if (length >= 2e-7) {
+					console.error('Boolean operation resulted in open path',
+							'segments =', path._segments.length,
+							'length =', length);
+				}
 				path = null;
 			}
 			if (path && (path._segments.length > 8
@@ -9597,7 +9597,7 @@ var PathIterator = Base.extend({
 		var i, j = this.index;
 		for (;;) {
 			i = j;
-			if (j == 0 || this.parts[--j].offset < offset)
+			if (j === 0 || this.parts[--j].offset < offset)
 				break;
 		}
 		for (var l = this.parts.length; i < l; i++) {
@@ -11054,20 +11054,23 @@ var View = Base.extend(Emitter, {
 
 		function getSize(name) {
 			return element[name] || parseInt(element.getAttribute(name), 10);
-		};
+		}
 
 		function getCanvasSize() {
 			var size = DomElement.getSize(element);
 			return size.isNaN() || size.isZero()
 					? new Size(getSize('width'), getSize('height'))
 					: size;
-		};
+		}
 
 		if (PaperScope.hasAttribute(element, 'resize')) {
 			var that = this;
+			this.refreshViewSize = function(){
+				that.setViewSize(getCanvasSize());
+			}
 			DomEvent.add(window, this._windowEvents = {
 				resize: function() {
-					that.setViewSize(getCanvasSize());
+					that.refreshViewSize()
 				}
 			});
 		}
@@ -12044,7 +12047,7 @@ var Tool = PaperScopeItem.extend({
 					distance = vector.getLength();
 				if (distance < minDist)
 					return false;
-				if (maxDistance != null && maxDistance != 0) {
+				if (maxDistance != null && maxDistance !== 0) {
 					if (distance > maxDistance) {
 						point = this._point.add(vector.normalize(maxDistance));
 					} else if (matchMaxDistance) {
